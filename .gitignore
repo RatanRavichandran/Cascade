@@ -216,3 +216,19 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Next.js
+/.next/
+/out/
+/build
+node_modules/
+npm-debug.log*
+.env*.local
+.env
+*.tsbuildinfo
+next-env.d.ts
+.vercel
+
+# Cascade generated graphs
+*.graph.json
+/graphs/
