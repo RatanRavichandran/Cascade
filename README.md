@@ -53,9 +53,9 @@ The graph is the source of truth; the UI is only a view of it. Persisted graphs 
 
 ## Architecture, conventions & gotchas
 
-See [`CLAUDE.md`](CLAUDE.md) for the project structure, the `lib/kg` module boundary, and important
-constraints — in particular the **pinned `web-tree-sitter@0.22.6`** (bumping it silently breaks all
-edges; see [`../docs/fix.md`](../docs/fix.md)).
+**Important constraint:** `web-tree-sitter` is pinned to **`0.22.6`** — do not bump it. The grammars
+in `tree-sitter-wasms@0.1.13` use the old WASM ABI; newer runtimes reject them and every parse
+returns `null`, producing zero graph edges.
 
 ## Deploy
 
