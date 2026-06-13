@@ -225,7 +225,7 @@ npm-debug.log*
 .env*.local
 .env
 *.tsbuildinfo
-next-env.d.ts
+# next-env.d.ts is intentionally tracked (Next.js recommends it)
 .vercel
 
 # Cascade generated graphs
