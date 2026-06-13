@@ -12,8 +12,11 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@types/dagre": "^0.7.54",
     "@upstash/redis": "^1.38.0",
+    "@xyflow/react": "^12.11.0",
     "cytoscape": "^3.30.2",
+    "dagre": "^0.8.5",
     "graphology": "^0.25.4",
     "graphology-types": "^0.24.7",
     "next": "^15.0.0",
