@@ -1,8 +1,23 @@
 import type { Metadata } from "next";
+import { IBM_Plex_Sans, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
 
+const ibmPlexSans = IBM_Plex_Sans({
+  subsets: ["latin"],
+  weight: ["300", "400", "500", "600", "700"],
+  variable: "--font-ibm-plex-sans",
+  display: "swap",
+});
+
+const ibmPlexMono = IBM_Plex_Mono({
+  subsets: ["latin"],
+  weight: ["400", "500"],
+  variable: "--font-ibm-plex-mono",
+  display: "swap",
+});
+
 export const metadata: Metadata = {
-  title: "Cascade — Repo Artifact Mapper",
+  title: "Cascade — See the ripple before you ship",
   description:
     "Classify a GitHub repository into artifact buckets and build a knowledge graph for change-impact analysis.",
 };
@@ -13,8 +28,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
-      <body className="bg-gray-950 text-gray-100 min-h-screen">{children}</body>
+    <html lang="en" className={`${ibmPlexSans.variable} ${ibmPlexMono.variable}`}>
+      <body className="font-sans bg-surface-subtle text-ink min-h-screen">
+        {children}
+      </body>
     </html>
   );
 }

@@ -1,3 +1,50 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  :root {
+    --color-primary: #0C5CAB;
+    --color-primary-dark: #0A4A8A;
+    --color-primary-light: #1a6fc4;
+    --color-success: #10B981;
+    --color-warning: #F59E0B;
+    --color-danger: #EF4444;
+
+    --color-surface: #FFFFFF;
+    --color-surface-subtle: #F8FAFC;
+    --color-surface-muted: #F1F5F9;
+    --color-surface-border: #E2E8F0;
+
+    --color-ink: #0F172A;
+    --color-ink-secondary: #475569;
+    --color-ink-muted: #94A3B8;
+    --color-ink-faint: #CBD5E1;
+
+    --shadow-card: 0 1px 3px 0 rgb(0 0 0 / 0.08), 0 1px 2px -1px rgb(0 0 0 / 0.06);
+    --shadow-panel: 0 8px 24px 0 rgb(0 0 0 / 0.08), 0 2px 8px -2px rgb(0 0 0 / 0.06);
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    background-color: var(--color-surface-subtle);
+    color: var(--color-ink);
+    min-height: 100vh;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}

@@ -12,6 +12,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@upstash/redis": "^1.38.0",
     "cytoscape": "^3.30.2",
     "graphology": "^0.25.4",
     "graphology-types": "^0.24.7",

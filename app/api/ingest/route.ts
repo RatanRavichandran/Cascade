@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { runPipeline } from "@/lib/kg/pipeline";
 
+// Ingest needs fs + wasm + the openai SDK — it must run on Node, never Edge.
+export const runtime = "nodejs";
+// GitHub fetch + tree-sitter parse + optional LLM enrichment can take a while on a
+// large repo; raise the function timeout above Vercel's short default.
+export const maxDuration = 60;
+
 export async function POST(req: NextRequest) {
   let repoUrl: string;
 

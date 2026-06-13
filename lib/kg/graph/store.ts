@@ -38,5 +38,12 @@ export const fileStore: GraphStore = {
   },
 };
 
-// Default store used by the app — swap this to a Postgres impl at deploy time.
-export const store: GraphStore = fileStore;
+// Store selection: use the shared Redis store when KV/Upstash credentials are present
+// (i.e. on Vercel), otherwise fall back to the local-filesystem store for `npm run dev`.
+// The Redis module is imported lazily so local dev never needs the @upstash/redis env.
+import { redisStore, hasRedisEnv } from "./store.redis";
+
+export const store: GraphStore = hasRedisEnv() ? redisStore : fileStore;
+
+// Log the active backend once at module load so deploy logs confirm which store is live.
+console.log(`[cascade] graph store: ${hasRedisEnv() ? "redis (shared)" : "file (local)"}`);

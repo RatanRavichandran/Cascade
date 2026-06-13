@@ -35,28 +35,44 @@ export default function RepoInput({ onIngest }: Props) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+    <form onSubmit={handleSubmit} className="flex flex-col gap-3 w-full">
       <div className="flex gap-2">
         <input
           type="text"
           value={url}
           onChange={(e) => setUrl(e.target.value)}
           placeholder="https://github.com/owner/repo"
-          className="flex-1 px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-sm
-                     placeholder-gray-500 focus:outline-none focus:border-violet-500 transition-colors"
+          className="flex-1 px-4 py-3 bg-surface border border-surface-border rounded-xl text-sm
+                     text-ink placeholder-ink-muted shadow-card
+                     focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary
+                     transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
           disabled={loading}
         />
         <button
           type="submit"
           disabled={loading || !url.trim()}
-          className="px-5 py-2.5 bg-violet-600 hover:bg-violet-500 disabled:bg-gray-700
-                     disabled:text-gray-500 text-sm font-medium rounded-lg transition-colors"
+          className="px-6 py-3 bg-primary hover:bg-primary-dark text-white text-sm font-semibold
+                     rounded-xl shadow-card transition-all duration-150
+                     focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2
+                     disabled:opacity-40 disabled:cursor-not-allowed min-w-[100px]"
         >
-          {loading ? "Analyzing…" : "Analyze"}
+          {loading ? (
+            <span className="flex items-center gap-2 justify-center">
+              <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+              </svg>
+              Analyzing
+            </span>
+          ) : (
+            "Analyze"
+          )}
         </button>
       </div>
       {error && (
-        <p className="text-red-400 text-sm">{error}</p>
+        <p className="text-danger text-sm flex items-center gap-1.5">
+          <span aria-hidden="true">⚠</span> {error}
+        </p>
       )}
     </form>
   );
