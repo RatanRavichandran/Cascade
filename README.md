@@ -70,20 +70,6 @@ Sign in with GitHub to unlock:
 
 Anonymous analysis always works. Auth is additive, not a gate.
 
-## Deploy to Vercel
-
-1. **Vercel project** → set Root Directory = `Cascade`.
-2. **Upstash integration** — add via Vercel Marketplace → injects `KV_REST_API_URL` + `KV_REST_API_TOKEN`.
-3. **GitHub OAuth Apps** — create *two* apps (one callback URL each):
-   - Dev: `http://localhost:3000/api/auth/callback/github`
-   - Prod: `https://<your-vercel-domain>/api/auth/callback/github`
-4. **Vercel env vars** (Production + Preview):
-   - `AUTH_SECRET` (generate once: `npx auth secret`)
-   - `AUTH_GITHUB_ID` / `AUTH_GITHUB_SECRET` (prod app credentials)
-   - `GITHUB_TOKEN` (optional but recommended for rate limits under demo load)
-   - `OPENAI_API_KEY` (optional; enables LLM enrichment)
-5. Push → Vercel builds and deploys automatically.
-
 ## Architecture, conventions & gotchas
 
 **`web-tree-sitter` is pinned to `0.22.6`** — do not bump it. The grammars in
