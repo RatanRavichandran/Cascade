@@ -39,6 +39,8 @@ click Analyze.
 
 ## How it works
 
+![Repository discovery and knowledge graph construction workflow](assets/bandofagents.png)
+
 The full pipeline lives in [`lib/kg/`](lib/kg) and is the only part of the codebase that builds the
 graph. Entry point: `runPipeline(repoUrl)` (exported from `@/lib/kg`).
 
