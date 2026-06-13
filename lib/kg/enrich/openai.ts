@@ -1,5 +1,5 @@
 import OpenAI from "openai";
-import type { Enricher, NodeForEnrichment, EnrichmentResult } from "./enricher";
+import type { Enricher, EnrichProgress, NodeForEnrichment, EnrichmentResult } from "./enricher";
 import type { ArchLayer } from "../graph/model";
 
 const BATCH_SIZE = 20;
@@ -15,7 +15,7 @@ export class OpenAIEnricher implements Enricher {
     this.model = model;
   }
 
-  async enrich(nodes: NodeForEnrichment[]): Promise<EnrichmentResult[]> {
+  async enrich(nodes: NodeForEnrichment[], onProgress?: EnrichProgress): Promise<EnrichmentResult[]> {
     const results: EnrichmentResult[] = [];
     for (let i = 0; i < nodes.length; i += BATCH_SIZE) {
       const batch = nodes.slice(i, i + BATCH_SIZE);
@@ -25,6 +25,7 @@ export class OpenAIEnricher implements Enricher {
       } catch {
         // graceful degradation: skip failed batch, continue with next
       }
+      onProgress?.(Math.min(i + BATCH_SIZE, nodes.length), nodes.length);
     }
     return results;
   }

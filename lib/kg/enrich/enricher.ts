@@ -15,8 +15,10 @@ export interface EnrichmentResult {
   layer?: ArchLayer;
 }
 
+export type EnrichProgress = (done: number, total: number) => void;
+
 export interface Enricher {
-  enrich(nodes: NodeForEnrichment[]): Promise<EnrichmentResult[]>;
+  enrich(nodes: NodeForEnrichment[], onProgress?: EnrichProgress): Promise<EnrichmentResult[]>;
 }
 
 /** Additively merge enrichment results into nodes. Never overwrites an existing layer. */

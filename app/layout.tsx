@@ -30,7 +30,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={`${ibmPlexSans.variable} ${ibmPlexMono.variable}`}>
-      <body className="font-sans bg-surface-subtle text-ink min-h-screen">
+      <body className="font-sans bg-surface-subtle text-ink min-h-screen" suppressHydrationWarning>
         <Providers>{children}</Providers>
       </body>
     </html>

@@ -53,37 +53,46 @@ async function parseFiles(
   return results;
 }
 
+export type PipelineProgress = (message: string) => void;
+
 export async function runPipeline(
   repoUrl: string,
-  opts?: { githubToken?: string }
+  opts?: { githubToken?: string; onProgress?: PipelineProgress }
 ): Promise<ArtifactGraph> {
+  const progress = opts?.onProgress ?? (() => {});
   const repoId = repoIdFromUrl(repoUrl);
 
   // Stage 1: ingest via GitHub API (uses caller's OAuth token when present)
+  progress("Fetching repository files from GitHub…");
   console.log(`[cascade] stage 1: ingesting ${repoUrl}`);
   const { files } = await ingestRepo(repoUrl, opts);
 
   // Stage 2: scan (language + metadata)
+  progress(`Scanning ${files.length} files…`);
   console.log(`[cascade] stage 2: scanning ${files.length} files`);
   const scanned = scanFiles(files);
 
   // Stage 3: classify → nodes + external ref placeholders
+  progress("Classifying artifacts into buckets…");
   console.log(`[cascade] stage 3: classifying`);
   const { nodes, externalRefs } = classifyFiles(scanned);
   console.log(`[cascade] stage 3: ${nodes.length} nodes, ${externalRefs.length} external refs`);
 
   // Stage 4a: tree-sitter parse (best-effort; degrades gracefully if language unsupported)
+  progress("Parsing code structure…");
   console.log(`[cascade] stage 4a: tree-sitter parse`);
   const parseResults = await parseFiles(scanned);
   console.log(`[cascade] stage 4a: parsed ${Object.keys(parseResults).length} files`);
 
   // Stage 4b: assign architectural layers
+  progress("Inferring architectural layers…");
   console.log(`[cascade] stage 4b: inferring layers`);
   for (const node of nodes) {
     node.layer = inferLayer(node, parseResults[node.id]);
   }
 
   // Stage 4c: build structural edges
+  progress("Building knowledge graph edges…");
   console.log(`[cascade] stage 4c: building edges`);
   const structuralEdges = buildStructuralEdges(nodes, parseResults);
   const externalRefEdges = buildExternalRefEdges(externalRefs);
@@ -99,6 +108,7 @@ export async function runPipeline(
   };
 
   // Stage 5: graph reviewer — drop dangling edges, dedupe
+  progress("Reviewing graph integrity…");
   console.log(`[cascade] stage 5: reviewing graph`);
   const { graph } = reviewGraph(rawGraph);
   console.log(`[cascade] stage 5: ${graph.nodes.length} nodes, ${graph.edges.length} edges after review`);
@@ -118,9 +128,13 @@ export async function runPipeline(
         contentSnippet: contentMap.get(n.id)?.slice(0, 600),
       }));
 
+    const total = nodesForEnrichment.length;
     try {
-      console.log(`[cascade] stage 5.5: LLM enrichment (${nodesForEnrichment.length} nodes)`);
-      const enrichments = await enricher.enrich(nodesForEnrichment);
+      progress(`Enriching with AI… (0 / ${total} nodes)`);
+      console.log(`[cascade] stage 5.5: LLM enrichment (${total} nodes)`);
+      const enrichments = await enricher.enrich(nodesForEnrichment, (done, tot) => {
+        progress(`Enriching with AI… (${done} / ${tot} nodes)`);
+      });
       applyEnrichmentResults(graph.nodes, enrichments);
       console.log(`[cascade] stage 5.5: enriched ${enrichments.length} nodes`);
     } catch {

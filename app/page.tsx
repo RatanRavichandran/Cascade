@@ -119,6 +119,7 @@ export default function Home() {
   const [graphData, setGraphData] = useState<ArtifactGraph | null>(null);
   const [selectedNode, setSelectedNode] = useState<NodeDetailData | null>(null);
   const [loadingBuckets, setLoadingBuckets] = useState(false);
+  const [progressMessage, setProgressMessage] = useState<string>("");
   const [dashView, setDashView] = useState<DashView>("overview");
   const [selectedBucket, setSelectedBucket] = useState<Bucket | null>(null);
 
@@ -128,6 +129,7 @@ export default function Home() {
     setSelectedNode(null);
     setSelectedBucket(null);
     setLoadingBuckets(true);
+    setProgressMessage("");
     setDashView("overview");
 
     try {
@@ -211,7 +213,15 @@ export default function Home() {
 
           {/* Repo input */}
           <div className="w-full max-w-xl">
-            <RepoInput onIngest={handleIngest} />
+            <RepoInput
+              onStart={(url) => {
+                setRepoUrl(url);
+                setLoadingBuckets(true);
+                setProgressMessage("Starting analysis…");
+              }}
+              onProgress={setProgressMessage}
+              onIngest={handleIngest}
+            />
           </div>
 
           {/* Example repos */}
@@ -275,7 +285,7 @@ export default function Home() {
             )}
             {loadingBuckets && (
               <p className="text-xs text-ink-muted mt-0.5 animate-pulse">
-                Ingesting and classifying repository…
+                {progressMessage || "Starting analysis…"}
               </p>
             )}
           </div>

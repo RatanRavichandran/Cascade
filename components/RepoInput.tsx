@@ -4,29 +4,74 @@ import { useState } from "react";
 
 interface Props {
   onIngest: (repoId: string, repoUrl: string) => void;
+  onStart?: (repoUrl: string) => void;
+  onProgress?: (message: string) => void;
 }
 
-export default function RepoInput({ onIngest }: Props) {
+export default function RepoInput({ onIngest, onStart, onProgress }: Props) {
   const [url, setUrl] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  function normalizeUrl(raw: string): string {
+    const s = raw.trim();
+    if (/^https?:\/\//i.test(s)) return s;
+    if (/^github\.com\//i.test(s)) return `https://${s}`;
+    if (/^[\w.-]+\/[\w.-]+$/.test(s)) return `https://github.com/${s}`;
+    return s;
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!url.trim()) return;
 
+    const repoUrl = normalizeUrl(url);
     setLoading(true);
     setError(null);
+    onStart?.(repoUrl);
 
     try {
       const res = await fetch("/api/ingest", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ repoUrl: url.trim() }),
+        body: JSON.stringify({ repoUrl }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Ingestion failed");
-      onIngest(data.repoId, url.trim());
+
+      if (!res.body) throw new Error("No response body");
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          const raw = line.slice(6).trim();
+          if (!raw) continue;
+
+          let event: Record<string, unknown>;
+          try {
+            event = JSON.parse(raw) as Record<string, unknown>;
+          } catch {
+            continue;
+          }
+
+          if (event.type === "progress" && typeof event.message === "string") {
+            onProgress?.(event.message);
+          } else if (event.type === "done") {
+            onIngest(event.repoId as string, repoUrl);
+          } else if (event.type === "error") {
+            throw new Error((event.message as string) ?? "Ingestion failed");
+          }
+        }
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unknown error");
     } finally {
@@ -41,7 +86,7 @@ export default function RepoInput({ onIngest }: Props) {
           type="text"
           value={url}
           onChange={(e) => setUrl(e.target.value)}
-          placeholder="https://github.com/owner/repo"
+          placeholder="owner/repo or https://github.com/owner/repo"
           className="flex-1 px-4 py-3 bg-surface border border-surface-border rounded-xl text-sm
                      text-ink placeholder-ink-muted shadow-card
                      focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary

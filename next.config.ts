@@ -1,6 +1,15 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "avatars.githubusercontent.com",
+      },
+    ],
+  },
+
   // web-tree-sitter loads its wasm via fs/require at runtime — keep it external so
   // webpack doesn't bundle/mangle it. graphology must stay external too.
   serverExternalPackages: ["graphology", "web-tree-sitter"],
