@@ -53,12 +53,15 @@ async function parseFiles(
   return results;
 }
 
-export async function runPipeline(repoUrl: string): Promise<ArtifactGraph> {
+export async function runPipeline(
+  repoUrl: string,
+  opts?: { githubToken?: string }
+): Promise<ArtifactGraph> {
   const repoId = repoIdFromUrl(repoUrl);
 
-  // Stage 1: ingest via GitHub API
+  // Stage 1: ingest via GitHub API (uses caller's OAuth token when present)
   console.log(`[cascade] stage 1: ingesting ${repoUrl}`);
-  const { files } = await ingestRepo(repoUrl);
+  const { files } = await ingestRepo(repoUrl, opts);
 
   // Stage 2: scan (language + metadata)
   console.log(`[cascade] stage 2: scanning ${files.length} files`);

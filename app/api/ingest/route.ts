@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { runPipeline } from "@/lib/kg/pipeline";
+import { auth } from "@/auth";
+import { recordAnalysis } from "@/lib/kg/history";
 
 // Ingest needs fs + wasm + the openai SDK — it must run on Node, never Edge.
 export const runtime = "nodejs";
@@ -23,8 +25,25 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
+  // Read session — if logged in, run ingest under the user's own GitHub token.
+  // Anonymous callers fall back to the shared GITHUB_TOKEN env var.
+  const session = await auth();
+  const githubToken = (session as unknown as { githubAccessToken?: string } | null)
+    ?.githubAccessToken;
+
   try {
-    const graph = await runPipeline(repoUrl);
+    const graph = await runPipeline(repoUrl, { githubToken });
+
+    // Record to per-user history when logged in.
+    if (session?.user?.ghId) {
+      await recordAnalysis(session.user.ghId, {
+        repoId: graph.repoId,
+        repoUrl,
+        analyzedAt: graph.createdAt,
+        nodeCount: graph.nodes.length,
+      });
+    }
+
     return NextResponse.json({
       repoId: graph.repoId,
       nodeCount: graph.nodes.length,

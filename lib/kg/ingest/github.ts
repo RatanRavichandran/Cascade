@@ -72,31 +72,37 @@ function parseRepoUrl(url: string): { owner: string; repo: string } {
   return { owner: match[1], repo: match[2] };
 }
 
-function githubHeaders(): HeadersInit {
-  const token = process.env.GITHUB_TOKEN;
+function githubHeaders(token?: string): HeadersInit {
+  const tok = token ?? process.env.GITHUB_TOKEN;
   return {
     Accept: "application/vnd.github+json",
     "X-GitHub-Api-Version": "2022-11-28",
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...(tok ? { Authorization: `Bearer ${tok}` } : {}),
   };
 }
 
-async function ghFetch(url: string): Promise<Response> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
-  try {
-    const res = await fetch(url, { headers: githubHeaders(), signal: controller.signal });
-    if (!res.ok) {
-      const body = await res.text().catch(() => "");
-      throw new Error(`GitHub API ${res.status} for ${url}: ${body}`);
+// token is threaded through so logged-in users use their own OAuth token
+// (5,000 req/hr) instead of the shared GITHUB_TOKEN env var.
+function makeGhFetch(token?: string) {
+  return async function ghFetch(url: string): Promise<Response> {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+    try {
+      const res = await fetch(url, { headers: githubHeaders(token), signal: controller.signal });
+      if (!res.ok) {
+        const body = await res.text().catch(() => "");
+        throw new Error(`GitHub API ${res.status} for ${url}: ${body}`);
+      }
+      return res;
+    } finally {
+      clearTimeout(timer);
     }
-    return res;
-  } finally {
-    clearTimeout(timer);
-  }
+  };
 }
 
-async function getDefaultBranch(owner: string, repo: string): Promise<string> {
+type GhFetch = (url: string) => Promise<Response>;
+
+async function getDefaultBranch(owner: string, repo: string, ghFetch: GhFetch): Promise<string> {
   const res = await ghFetch(`${GITHUB_API}/repos/${owner}/${repo}`);
   const data = (await res.json()) as { default_branch: string };
   return data.default_branch;
@@ -113,7 +119,8 @@ interface TreeItem {
 async function getTree(
   owner: string,
   repo: string,
-  branch: string
+  branch: string,
+  ghFetch: GhFetch,
 ): Promise<TreeItem[]> {
   const res = await ghFetch(
     `${GITHUB_API}/repos/${owner}/${repo}/git/trees/${branch}?recursive=1`
@@ -139,7 +146,7 @@ function shouldInclude(item: TreeItem): boolean {
   return INCLUDED_EXTENSIONS.has(ext);
 }
 
-async function fetchBlob(url: string): Promise<string | null> {
+async function fetchBlob(url: string, ghFetch: GhFetch): Promise<string | null> {
   const res = await ghFetch(url);
   const data = (await res.json()) as {
     content?: string;
@@ -160,6 +167,7 @@ async function fetchBlob(url: string): Promise<string | null> {
 // Fetch blobs in parallel batches to stay within rate limits.
 async function fetchBlobs(
   items: TreeItem[],
+  ghFetch: GhFetch,
   batchSize = 10
 ): Promise<RepoFile[]> {
   const results: RepoFile[] = [];
@@ -168,7 +176,7 @@ async function fetchBlobs(
     const batch = items.slice(i, i + batchSize);
     const settled = await Promise.allSettled(
       batch.map(async (item) => {
-        const content = await fetchBlob(item.url);
+        const content = await fetchBlob(item.url, ghFetch);
         if (content === null) return null;
         return {
           path: item.path,
@@ -189,17 +197,18 @@ async function fetchBlobs(
   return results;
 }
 
-export async function ingestRepo(repoUrl: string): Promise<{
-  meta: RepoMeta;
-  files: RepoFile[];
-}> {
+export async function ingestRepo(
+  repoUrl: string,
+  opts?: { githubToken?: string }
+): Promise<{ meta: RepoMeta; files: RepoFile[] }> {
+  const ghFetch = makeGhFetch(opts?.githubToken);
   const { owner, repo } = parseRepoUrl(repoUrl);
-  const defaultBranch = await getDefaultBranch(owner, repo);
-  const tree = await getTree(owner, repo, defaultBranch);
+  const defaultBranch = await getDefaultBranch(owner, repo, ghFetch);
+  const tree = await getTree(owner, repo, defaultBranch, ghFetch);
 
   const relevant = tree.filter(shouldInclude).slice(0, MAX_FILES);
   console.log(`[cascade] ingest: ${tree.length} tree items → ${relevant.length} relevant files (capped at ${MAX_FILES})`);
-  const files = await fetchBlobs(relevant);
+  const files = await fetchBlobs(relevant, ghFetch);
   console.log(`[cascade] ingest: fetched ${files.length} file blobs`);
 
   return {

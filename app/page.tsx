@@ -1,11 +1,14 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { useSession } from "next-auth/react";
 import dynamic from "next/dynamic";
 import RepoInput from "@/components/RepoInput";
 import BucketCard from "@/components/BucketCard";
 import BucketDetail from "@/components/BucketDetail";
 import NodeDetail from "@/components/NodeDetail";
+import UserMenu from "@/components/UserMenu";
+import HistoryPanel from "@/components/HistoryPanel";
 import { BUCKETS, type Bucket } from "@/lib/kg/graph/model";
 import type { ArtifactNode, ArtifactEdge, ArtifactGraph } from "@/lib/kg/graph/model";
 
@@ -32,7 +35,7 @@ interface NodeDetailData {
   edges: ArtifactEdge[];
 }
 
-type DashView = "overview" | "graph" | "bucket";
+type DashView = "overview" | "graph" | "bucket" | "history";
 
 // ── Skeleton tile shown during loading ─────────────────────────────────────
 function SkeletonCard() {
@@ -70,15 +73,7 @@ function TopBar({ hasResults }: { hasResults: boolean }) {
           </span>
         )}
         <div className="ml-auto">
-          <a
-            href="https://github.com/RatanRavichandran"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-xs text-ink-muted hover:text-primary transition-colors"
-            aria-label="GitHub profile"
-          >
-            GitHub ↗
-          </a>
+          <UserMenu />
         </div>
       </div>
     </header>
@@ -116,6 +111,8 @@ function ViewTab({
 }
 
 export default function Home() {
+  const { data: session } = useSession();
+  const isLoggedIn = !!session?.user?.ghId;
   const [repoId, setRepoId] = useState<string | null>(null);
   const [repoUrl, setRepoUrl] = useState<string | null>(null);
   const [bucketsData, setBucketsData] = useState<BucketsResponse | null>(null);
@@ -161,6 +158,27 @@ export default function Home() {
   function handleBackToOverview() {
     setSelectedBucket(null);
     setDashView("overview");
+  }
+
+  async function handleHistorySelect(id: string, url: string) {
+    setRepoId(id);
+    setRepoUrl(url);
+    setSelectedNode(null);
+    setSelectedBucket(null);
+    setLoadingBuckets(true);
+    setDashView("overview");
+
+    try {
+      const [bucketsRes, graphRes] = await Promise.all([
+        fetch(`/api/buckets?repoId=${id}`),
+        fetch(`/api/graph?repoId=${id}`),
+      ]);
+      const [buckets, graph] = await Promise.all([bucketsRes.json(), graphRes.json()]);
+      setBucketsData(buckets);
+      setGraphData(graph);
+    } finally {
+      setLoadingBuckets(false);
+    }
   }
 
   const totalNodes = bucketsData
@@ -275,6 +293,13 @@ export default function Home() {
                 disabled={!graphData}
                 onClick={() => { setDashView("graph"); setSelectedBucket(null); }}
               />
+              {isLoggedIn && (
+                <ViewTab
+                  label="My repos"
+                  active={dashView === "history"}
+                  onClick={() => { setDashView("history"); setSelectedBucket(null); }}
+                />
+              )}
             </div>
           )}
         </div>
@@ -315,6 +340,11 @@ export default function Home() {
         {/* Graph view */}
         {hasResults && dashView === "graph" && graphData && (
           <GraphView graph={graphData} onNodeClick={handleNodeClick} />
+        )}
+
+        {/* My repos history */}
+        {hasResults && dashView === "history" && isLoggedIn && (
+          <HistoryPanel onSelect={handleHistorySelect} />
         )}
       </main>
 
