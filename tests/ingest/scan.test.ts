@@ -3,7 +3,7 @@ import { scanFiles } from "@/lib/kg/ingest/scan";
 import type { RepoFile } from "@/lib/kg/ingest/github";
 
 function file(path: string, content = ""): RepoFile {
-  return { path, content, size: content.length };
+  return { path, content, size: content.length, sha: "" };
 }
 
 describe("scanFiles", () => {

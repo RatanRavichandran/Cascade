@@ -1,0 +1,16 @@
+# Copy to agent_config.yaml (gitignored) and fill in the credentials Band shows
+# when you register each External Agent (Agents → New Agent → External).
+# The api_key is shown ONCE at creation — copy it immediately.
+# Also rename each agent in the Band UI to match the role name below.
+
+facilitator:
+  agent_id: "REPLACE_WITH_BAND_AGENT_UUID"
+  api_key: "REPLACE_WITH_BAND_API_KEY"
+
+ripple_analyst:
+  agent_id: "REPLACE_WITH_BAND_AGENT_UUID"
+  api_key: "REPLACE_WITH_BAND_API_KEY"
+
+test_debugger:
+  agent_id: "REPLACE_WITH_BAND_AGENT_UUID"
+  api_key: "REPLACE_WITH_BAND_API_KEY"

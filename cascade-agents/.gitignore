@@ -1,0 +1,13 @@
+# Secrets / credentials — never commit
+.env
+agent_config.yaml
+
+# Python / uv
+.venv/
+__pycache__/
+*.pyc
+.uv/
+uv.lock
+
+# Cached graph comprehension briefings (regenerated from the live graph)
+.cache/

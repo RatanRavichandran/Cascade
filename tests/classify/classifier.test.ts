@@ -11,7 +11,7 @@ function scanned(
   const filename = path.split("/").pop()!.toLowerCase();
   const dotIdx = filename.lastIndexOf(".");
   const ext = dotIdx >= 0 ? filename.slice(dotIdx) : "";
-  return { path, content, size: content.length, filename, ext, language: undefined, ...overrides };
+  return { path, content, size: content.length, sha: "", filename, ext, language: undefined, ...overrides };
 }
 
 describe("classifyFiles", () => {

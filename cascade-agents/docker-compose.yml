@@ -1,0 +1,19 @@
+services:
+  cascade-agents:
+    build: .
+    environment:
+      # LLM model (LiteLLM format: "gpt-4o-mini", "anthropic/claude-sonnet-4-6", etc.)
+      CASCADE_AGENT_MODEL: ${CASCADE_AGENT_MODEL:-gpt-4o-mini}
+      # LLM API key — set whichever matches CASCADE_AGENT_MODEL
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      # Deployed Cascade Next.js app URL (graph is fetched from here)
+      CASCADE_API_BASE: ${CASCADE_API_BASE:-https://your-app.vercel.app}
+      # Repository ID to analyze (owner-repo format, e.g. docker-getting-started-todo-app)
+      CASCADE_REPO_ID: ${CASCADE_REPO_ID}
+      # Health server port (Render sets $PORT automatically)
+      PORT: ${PORT:-10000}
+    volumes:
+      # Mount agent_config.yaml (gitignored) into the container
+      - ./agent_config.yaml:/app/agent_config.yaml:ro
+    restart: unless-stopped
