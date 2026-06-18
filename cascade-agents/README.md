@@ -1,12 +1,12 @@
 # cascade-agents — Cascade Phase 2 (ripple analysis)
 
-band.ai multi-agent analysis system for [Cascade](../docs/phase-2-plan.md). Three **CrewAI remote
+band.ai multi-agent analysis system for [Cascade](../../docs/phase-2-plan.md). Three **CrewAI remote
 agents** connect to a Band chat room and, grounded in the Phase 1 knowledge graph, collaboratively
 diagnose the impact of requirements changes and test failures.
 
-This is a **separate Python service** from the Next.js app in [`../Cascade`](../Cascade) — it does not
-deploy to Vercel (Band agents are long-running WebSocket processes). See
-[../docs/phase-2-plan.md](../docs/phase-2-plan.md) for the design.
+This service lives inside the Cascade Next.js app folder (`../`) and runs as a **separate Python
+process** — it does not deploy to Vercel (Band agents are long-running WebSocket processes). See
+[../../docs/phase-2-plan.md](../../docs/phase-2-plan.md) for the design.
 
 ## Agents
 

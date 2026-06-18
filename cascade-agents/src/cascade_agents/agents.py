@@ -1,4 +1,4 @@
-"""Cascade Phase 2 — band.ai agents: Facilitator, Ripple Analyst, Test Debugger.
+"""Cascade Phase 3 — band.ai agents: Facilitator, Ripple Analyst, Test Debugger.
 
 Architecture:
 - Facilitator  : sole entry point from the user; classifies, routes, concludes
@@ -18,6 +18,12 @@ Each agent is a CrewAI remote agent that:
 - Is activated only when @mentioned (band.ai mention-gating)
 - Replies via band_send_message (plain returns are invisible to the room)
 - Uses band_send_event for progress narration (does NOT trigger other agents)
+
+Phase 3 / T2 change: agents are now repo-agnostic. The KG digest is no longer baked
+into the system prompt at construction (custom_section). Instead, RepoInjectionPreprocessor
+resolves the room's repoId from the [repoId:...] seed tag, fetches the role-scoped digest
+via RepoContextResolver, and prepends it to the activating message before the LLM runs.
+See repo_context.py for the composition order and caching strategy.
 """
 
 from __future__ import annotations
@@ -27,7 +33,7 @@ from pathlib import Path
 from band import Agent
 from band.adapters.crewai import CrewAIAdapter
 
-from cascade_agents.loop_guard import LoopGuardPreprocessor
+from cascade_agents.repo_context import RepoContextResolver, RepoInjectionPreprocessor
 
 _PLATFORM_RULES = """
 
@@ -66,14 +72,6 @@ _PLATFORM_RULES = """
 """
 
 
-_DEFAULT_KG_PREAMBLE = (
-    "\n\n## Knowledge Graph (read-only snapshot)\n\n"
-    "Compact digest of the repository knowledge graph. "
-    "Use it to look up artifact IDs, paths, buckets, layers, and structural "
-    "relationships when answering analysis questions.\n\n"
-)
-
-
 def _make_agent(
     *,
     config_key: str,
@@ -81,16 +79,14 @@ def _make_agent(
     role: str,
     goal: str,
     backstory: str,
-    kg_digest: str,
+    resolver: RepoContextResolver,
     config_path: Path,
-    context_preamble: str = _DEFAULT_KG_PREAMBLE,
 ) -> Agent:
     adapter = CrewAIAdapter(
         model=model,
         role=role,
         goal=goal,
         backstory=backstory + _PLATFORM_RULES,
-        custom_section=context_preamble + kg_digest,
         verbose=False,
         max_iter=5,
     )
@@ -98,11 +94,11 @@ def _make_agent(
         config_key,
         adapter=adapter,
         config_path=config_path,
-        preprocessor=LoopGuardPreprocessor(),
+        preprocessor=RepoInjectionPreprocessor(resolver, config_key),
     )
 
 
-def make_facilitator(kg_digest: str, model: str, config_path: Path) -> Agent:
+def make_facilitator(resolver: RepoContextResolver, model: str, config_path: Path) -> Agent:
     """
     The Facilitator — sole entry point from the user.
     Classifies the request, routes to ONE workflow, and concludes to the user.
@@ -193,21 +189,12 @@ If the user later approves a follow-up ("yes, check the tests"), treat that as a
 go back to Step 1 and classify it (e.g. the test follow-up is now Entry B). One action,
 then stop, again.
 """,
-        kg_digest=kg_digest,
+        resolver=resolver,
         config_path=config_path,
-        context_preamble=(
-            "\n\n## Repository understanding (pre-analyzed from the knowledge graph)\n\n"
-            "You have already read and analyzed this repository's full knowledge graph. "
-            "The following is your retained understanding of the codebase — its purpose, "
-            "structure, API surface, data model, test layout, and dependency hotspots. "
-            "Use it to classify requests, route to the right specialist, and synthesize "
-            "conclusions. You do NOT have the raw node/edge list in front of you and do NOT "
-            "need it — for exact node IDs or edge-level tracing, that is the specialists' job.\n\n"
-        ),
     )
 
 
-def make_ripple_analyst(kg_digest: str, model: str, config_path: Path) -> Agent:
+def make_ripple_analyst(resolver: RepoContextResolver, model: str, config_path: Path) -> Agent:
     """
     Requirements Ripple Analyst — Entry A.
     Traces ripple effects of requirements/spec changes through the knowledge graph.
@@ -286,12 +273,12 @@ another agent.]
 
 After sending this, your turn is COMPLETE. Send nothing further.
 """,
-        kg_digest=kg_digest,
+        resolver=resolver,
         config_path=config_path,
     )
 
 
-def make_test_debugger(kg_digest: str, model: str, config_path: Path) -> Agent:
+def make_test_debugger(resolver: RepoContextResolver, model: str, config_path: Path) -> Agent:
     """
     Test-Failure Debugger — Entry B.
     Diagnoses failing tests by reading actual source code; uses the KG as a navigation index.
@@ -372,6 +359,6 @@ Omit if none. Suggestion only — do NOT act on it or mention another agent.]
 
 After sending this, your turn is COMPLETE. Send nothing further.
 """,
-        kg_digest=kg_digest,
+        resolver=resolver,
         config_path=config_path,
     )

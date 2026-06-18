@@ -1,6 +1,6 @@
-"""Cascade Phase 2 — production entry point.
+"""Cascade Phase 3 — production entry point.
 
-Starts all 3 band.ai agents concurrently (each grounded in a role-scoped KG digest)
+Starts all 3 band.ai agents concurrently (repo-agnostic; context injected per-room)
 plus a tiny HTTP health server for Render keep-alive.
 
 Usage:
@@ -8,11 +8,16 @@ Usage:
 
 Required env vars (set in .env or container env):
     CASCADE_API_BASE          - URL of the deployed Cascade Next.js app
-    CASCADE_REPO_ID           - repo to analyze, e.g. docker-getting-started-todo-app
-    CASCADE_FACILITATOR_MODEL - model for Facilitator (default: gpt-4o)
-    CASCADE_SPECIALIST_MODEL  - model for Ripple Analyst and Test Debugger (default: gpt-4o-mini)
-    CASCADE_AGENT_MODEL       - fallback if per-role vars are unset (default: gpt-4o-mini)
+    CASCADE_FACILITATOR_MODEL - model for Facilitator (default: gpt-5-mini)
+    CASCADE_SPECIALIST_MODEL  - model for Ripple Analyst and Test Debugger (default: gpt-5-mini)
+    CASCADE_AGENT_MODEL       - fallback if per-role vars are unset (default: gpt-5-mini)
     PORT                      - health server port (default: 10000, Render sets this)
+
+Optional env vars:
+    CASCADE_REPO_ID           - legacy single-repo shortcut: pre-warms the context cache at
+                                startup so the first message to that repo skips the fetch +
+                                comprehension cost. Not required — context is resolved lazily
+                                per-room when a [repoId:...] seed tag arrives (T2 / AD1).
 """
 
 from __future__ import annotations
@@ -52,65 +57,40 @@ PORT = int(os.getenv("PORT", "10000"))
 
 
 async def main() -> None:
-    from cascade_agents.graph_digest import fetch_graph, build_scoped_digest
-    from cascade_agents.comprehension import build_comprehension
     from cascade_agents.agents import make_facilitator, make_ripple_analyst, make_test_debugger
     from cascade_agents.health import start_health_server
+    from cascade_agents.repo_context import RepoContextResolver
 
-    if not CASCADE_API_BASE or not CASCADE_REPO_ID:
-        logger.error("CASCADE_API_BASE and CASCADE_REPO_ID must both be set in .env")
+    if not CASCADE_API_BASE:
+        logger.error("CASCADE_API_BASE must be set in .env")
         return
 
-    # Fetch KG once; build role-scoped digests to trim per-turn token usage.
-    logger.info("Fetching KG digest for '%s' from %s ...", CASCADE_REPO_ID, CASCADE_API_BASE)
-    graph = await fetch_graph(CASCADE_REPO_ID, base_url=CASCADE_API_BASE)
-
-    # Facilitator: analyze the FULL graph once into a dense briefing, cache to disk,
-    # and inject that retained understanding instead of the raw node/edge dump.
-    # First boot on a new graph runs one LLM pass; subsequent boots are instant.
-    facilitator_digest = await build_comprehension(
-        graph, model=FACILITATOR_MODEL, repo_id=CASCADE_REPO_ID
-    )
-
-    # Ripple Analyst needs dependency and API-contract edges for ripple tracing.
-    ripple_digest = build_scoped_digest(
-        graph,
-        edge_types={
-            "imports",
-            "depends_on",
-            "defines_route",
-            "implements_route",
-            "references_external_spec",
-            "affects",
-        },
-    )
-
-    # Test Debugger uses the KG as a navigation index only — keeps token cost low.
-    # It reads actual source files for the real content.
-    debugger_digest = build_scoped_digest(
-        graph,
-        edge_types={"tests", "imports"},
-    )
-
-    logger.info(
-        "Digests ready: facilitator=%d chars | ripple=%d chars | debugger=%d chars"
-        " | %d nodes | %d edges",
-        len(facilitator_digest),
-        len(ripple_digest),
-        len(debugger_digest),
-        len(graph.get("nodes", [])),
-        len(graph.get("edges", [])),
-    )
     logger.info("Models: facilitator=%s | specialists=%s", FACILITATOR_MODEL, SPECIALIST_MODEL)
 
+    # Repo context is resolved lazily per-room when the first [repoId:...] seed tag
+    # arrives (T2 / AD1). A single resolver is shared across all three agents.
+    resolver = RepoContextResolver(
+        api_base=CASCADE_API_BASE,
+        facilitator_model=FACILITATOR_MODEL,
+    )
+
+    # Legacy pre-warm: if CASCADE_REPO_ID is set, warm the cache at startup so the
+    # first message to that repo pays no extra fetch + comprehension cost.
+    if CASCADE_REPO_ID:
+        logger.info("Pre-warming context cache for '%s' …", CASCADE_REPO_ID)
+        try:
+            await resolver.resolve(CASCADE_REPO_ID)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Pre-warm failed for '%s': %r — continuing without cache", CASCADE_REPO_ID, exc)
+
     facilitator = make_facilitator(
-        kg_digest=facilitator_digest, model=FACILITATOR_MODEL, config_path=CONFIG_PATH
+        resolver=resolver, model=FACILITATOR_MODEL, config_path=CONFIG_PATH
     )
     ripple_analyst = make_ripple_analyst(
-        kg_digest=ripple_digest, model=SPECIALIST_MODEL, config_path=CONFIG_PATH
+        resolver=resolver, model=SPECIALIST_MODEL, config_path=CONFIG_PATH
     )
     test_debugger = make_test_debugger(
-        kg_digest=debugger_digest, model=SPECIALIST_MODEL, config_path=CONFIG_PATH
+        resolver=resolver, model=SPECIALIST_MODEL, config_path=CONFIG_PATH
     )
 
     health_server = await start_health_server(PORT)
@@ -118,12 +98,13 @@ async def main() -> None:
     logger.info(
         "\n"
         "  +----------------------------------------------------------+\n"
-        "  |  Cascade Phase 2 agents live on band.ai                  |\n"
+        "  |  Cascade Phase 3 agents live on band.ai (repo-agnostic)  |\n"
         "  |                                                           |\n"
-        "  |  @Facilitator    - entry point, routes and synthesizes   |\n"
+        "  |  @Facilitator    - entry point, routes and synthesises   |\n"
         "  |  @Ripple Analyst - Entry A: requirements change impact   |\n"
         "  |  @Test Debugger  - Entry B: failing test root-cause      |\n"
         "  |                                                           |\n"
+        "  |  Context resolved per-room from [repoId:...] seed tag    |\n"
         "  |  Health: GET http://localhost:%s/healthz              |\n"
         "  |  Press Ctrl+C to stop.                                   |\n"
         "  +----------------------------------------------------------+",

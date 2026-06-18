@@ -9,6 +9,7 @@ import BucketDetail from "@/components/BucketDetail";
 import NodeDetail from "@/components/NodeDetail";
 import UserMenu from "@/components/UserMenu";
 import HistoryPanel from "@/components/HistoryPanel";
+import RippleLauncher from "@/components/RippleLauncher";
 import { BUCKETS, type Bucket } from "@/lib/kg/graph/model";
 import type { ArtifactNode, ArtifactEdge, ArtifactGraph } from "@/lib/kg/graph/model";
 
@@ -35,7 +36,7 @@ interface NodeDetailData {
   edges: ArtifactEdge[];
 }
 
-type DashView = "overview" | "graph" | "bucket" | "history";
+type DashView = "overview" | "graph" | "bucket" | "history" | "ripple";
 
 // ── Skeleton tile shown during loading ─────────────────────────────────────
 function SkeletonCard() {
@@ -122,6 +123,7 @@ export default function Home() {
   const [progressMessage, setProgressMessage] = useState<string>("");
   const [dashView, setDashView] = useState<DashView>("overview");
   const [selectedBucket, setSelectedBucket] = useState<Bucket | null>(null);
+  const [heroMode, setHeroMode] = useState<"input" | "history">("input");
 
   async function handleIngest(id: string, url: string) {
     setRepoId(id);
@@ -191,6 +193,27 @@ export default function Home() {
 
   // ── Hero / empty state ──────────────────────────────────────────────────
   if (!repoId && !loadingBuckets) {
+    // My repos view — accessible directly from the home page when logged in.
+    if (heroMode === "history") {
+      return (
+        <div className="min-h-screen flex flex-col">
+          <TopBar hasResults={false} />
+          <main className="flex-1 max-w-2xl mx-auto w-full px-6 py-10">
+            <div className="flex items-center gap-3 mb-8">
+              <button
+                onClick={() => setHeroMode("input")}
+                className="text-sm text-ink-secondary hover:text-ink flex items-center gap-1.5 transition-colors"
+              >
+                ← Back
+              </button>
+              <h1 className="text-xl font-semibold text-ink tracking-tight">My repos</h1>
+            </div>
+            <HistoryPanel onSelect={(id, url) => { setHeroMode("input"); handleHistorySelect(id, url); }} />
+          </main>
+        </div>
+      );
+    }
+
     return (
       <div className="min-h-screen flex flex-col">
         <TopBar hasResults={false} />
@@ -223,6 +246,18 @@ export default function Home() {
               onIngest={handleIngest}
             />
           </div>
+
+          {/* My repos shortcut — only when logged in */}
+          {isLoggedIn && (
+            <div className="mt-5">
+              <button
+                onClick={() => setHeroMode("history")}
+                className="text-sm text-primary hover:text-primary/80 font-medium transition-colors"
+              >
+                My repos →
+              </button>
+            </div>
+          )}
 
           {/* Example repos */}
           <div className="mt-8 flex flex-col items-center gap-2">
@@ -310,6 +345,13 @@ export default function Home() {
                   onClick={() => { setDashView("history"); setSelectedBucket(null); }}
                 />
               )}
+              {isLoggedIn && (
+                <ViewTab
+                  label="Ripple Analysis"
+                  active={dashView === "ripple"}
+                  onClick={() => { setDashView("ripple"); setSelectedBucket(null); }}
+                />
+              )}
             </div>
           )}
         </div>
@@ -355,6 +397,11 @@ export default function Home() {
         {/* My repos history */}
         {hasResults && dashView === "history" && isLoggedIn && (
           <HistoryPanel onSelect={handleHistorySelect} />
+        )}
+
+        {/* Ripple analysis launcher */}
+        {hasResults && dashView === "ripple" && isLoggedIn && (
+          <RippleLauncher initialRepoId={repoId} />
         )}
       </main>
 

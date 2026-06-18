@@ -14,3 +14,12 @@ ripple_analyst:
 test_debugger:
   agent_id: "REPLACE_WITH_BAND_AGENT_UUID"
   api_key: "REPLACE_WITH_BAND_API_KEY"
+
+# Orchestrator — a 4th agent that ONLY creates + seeds rooms (never reasons, never
+# @mentioned back). It exists because Band's Human API (posting as the user) is
+# Enterprise-only, and the Facilitator can't seed itself (Band filters own messages).
+# Register it like the others (Agents → New Agent → External), then fill in below.
+# Its key also goes in Vercel env as BAND_ORCHESTRATOR_KEY for POST /api/ripple.
+orchestrator:
+  agent_id: "REPLACE_WITH_BAND_AGENT_UUID"
+  api_key: "REPLACE_WITH_BAND_API_KEY"

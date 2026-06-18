@@ -2,18 +2,34 @@ services:
   cascade-agents:
     build: .
     environment:
-      # LLM model (LiteLLM format: "gpt-4o-mini", "anthropic/claude-sonnet-4-6", etc.)
-      CASCADE_AGENT_MODEL: ${CASCADE_AGENT_MODEL:-gpt-4o-mini}
-      # LLM API key — set whichever matches CASCADE_AGENT_MODEL
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      # Per-role models — Facilitator benefits from stronger reasoning;
+      # specialists can use a cheaper model for focused analysis.
+      CASCADE_FACILITATOR_MODEL: ${CASCADE_FACILITATOR_MODEL:-gpt-4o}
+      CASCADE_SPECIALIST_MODEL:  ${CASCADE_SPECIALIST_MODEL:-gpt-4o-mini}
+      CASCADE_AGENT_MODEL:       ${CASCADE_AGENT_MODEL:-gpt-4o-mini}
+      # LLM API key — set whichever matches your model provider.
+      OPENAI_API_KEY:    ${OPENAI_API_KEY:-}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
-      # Deployed Cascade Next.js app URL (graph is fetched from here)
+      # Deployed Cascade Next.js app URL (graph is fetched from /api/graph).
       CASCADE_API_BASE: ${CASCADE_API_BASE:-https://your-app.vercel.app}
-      # Repository ID to analyze (owner-repo format, e.g. docker-getting-started-todo-app)
-      CASCADE_REPO_ID: ${CASCADE_REPO_ID}
-      # Health server port (Render sets $PORT automatically)
+      # Optional — pre-warms the context cache for this repo at startup.
+      # Not required since T2: context is resolved lazily per-room from [repoId:...].
+      CASCADE_REPO_ID: ${CASCADE_REPO_ID:-}
+      # Health server port (Render sets $PORT automatically).
       PORT: ${PORT:-10000}
+    ports:
+      - "${PORT:-10000}:${PORT:-10000}"
     volumes:
-      # Mount agent_config.yaml (gitignored) into the container
+      # Mount agent_config.yaml (gitignored credentials) into the container.
       - ./agent_config.yaml:/app/agent_config.yaml:ro
+    healthcheck:
+      test:
+        - "CMD"
+        - "python"
+        - "-c"
+        - "import os,urllib.request; urllib.request.urlopen('http://localhost:' + os.getenv('PORT','10000') + '/healthz', timeout=4)"
+      interval: 30s
+      timeout: 5s
+      start_period: 20s
+      retries: 3
     restart: unless-stopped

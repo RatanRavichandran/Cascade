@@ -1,0 +1,23 @@
+# Python / uv runtime artifacts
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+.uv/
+
+# Secrets — never bake into the image; mount agent_config.yaml at runtime via volume
+.env
+agent_config.yaml
+
+# Comprehension cache (regenerated from the live graph)
+.cache/
+
+# Dev / test helpers not needed at runtime
+spike_t1.py
+run_one.py
+bootstrap.py
+verify_setup.py
+
+# Git
+.git/
+.gitignore

@@ -7,7 +7,7 @@ agent_config.yaml
 __pycache__/
 *.pyc
 .uv/
-uv.lock
+# uv.lock is intentionally committed — required for reproducible `uv sync --frozen` in Docker/CI
 
 # Cached graph comprehension briefings (regenerated from the live graph)
 .cache/

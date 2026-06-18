@@ -45,6 +45,7 @@ coverage/
 # Cascade generated data
 *.graph.json
 /graphs/
+/histories/
 
 # Docs and plans (not README.md — that stays tracked)
 docs/
