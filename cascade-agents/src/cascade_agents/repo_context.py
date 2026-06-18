@@ -123,6 +123,18 @@ class RepoContextResolver:
         self._api_base = api_base.rstrip("/")
         self._facilitator_model = facilitator_model
         self._cache: dict[str, RepoDigests] = {}
+        # Shared across all preprocessors: room_id → repoId.
+        # Populated by whichever agent sees the [repoId:...] seed tag first
+        # (always the Facilitator), then reused by specialists in the same room.
+        self._room_repo_id: dict[str, str] = {}
+
+    def associate_room(self, room_id: str, repo_id: str) -> None:
+        """Record that room_id is analysing repo_id (called by the preprocessor on seed)."""
+        self._room_repo_id[room_id] = repo_id
+
+    def repo_for_room(self, room_id: str) -> str | None:
+        """Return the repoId associated with room_id, or None if not yet seen."""
+        return self._room_repo_id.get(room_id)
 
     async def resolve(self, repo_id: str) -> RepoDigests:
         """Return cached digests for repo_id, fetching from the graph API on a miss."""
@@ -183,8 +195,6 @@ class RepoInjectionPreprocessor(LoopGuardPreprocessor):
         super().__init__()
         self._resolver = resolver
         self._role = role
-        # Populated on first seed message; reused for every subsequent turn.
-        self._room_repo_id: dict[str, str] = {}
 
     async def process(
         self,
@@ -200,19 +210,22 @@ class RepoInjectionPreprocessor(LoopGuardPreprocessor):
         room_id = inp.room_id
 
         # --- Step 1: extract repoId from seed content tag (once per room) ---
-        if room_id not in self._room_repo_id:
+        # The resolver's _room_repo_id is shared across all preprocessors, so whichever
+        # agent sees the [repoId:...] seed tag first (always the Facilitator) populates
+        # the mapping for every specialist that activates later in the same room.
+        if not self._resolver.repo_for_room(room_id):
             m = _REPO_ID_RE.search(inp.msg.content)
             if m:
                 repo_id_found = m.group(1).strip()
-                self._room_repo_id[room_id] = repo_id_found
+                self._resolver.associate_room(room_id, repo_id_found)
                 logger.info(
-                    "RepoInjection[%s] room %s → repoId '%s'",
+                    "RepoInjection[%s] room %s → repoId '%s' (shared)",
                     self._role,
                     room_id,
                     repo_id_found,
                 )
 
-        repo_id = self._room_repo_id.get(room_id)
+        repo_id = self._resolver.repo_for_room(room_id)
         if not repo_id:
             # No repoId seen for this room yet — pass the message through unchanged.
             # This can happen if the preprocessor activates on a message that arrives
