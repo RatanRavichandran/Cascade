@@ -30,7 +30,7 @@ deploy to Vercel (Band agents are long-running WebSocket processes). See
 uv sync                              # creates the venv (Python 3.12) and installs deps
 uv run python verify_setup.py        # smoke test: confirm imports resolve
 
-cp .env.example .env                 # fill in OPENAI_API_KEY, CASCADE_API_BASE, CASCADE_REPO_ID
+cp .env.example .env                 # fill in OPENAI_API_KEY, CASCADE_FACILITATOR_MODEL, CASCADE_API_BASE, CASCADE_REPO_ID
 cp agent_config.example.yaml agent_config.yaml   # fill in each agent's id + api_key
 ```
 
@@ -58,12 +58,15 @@ uv run python -m cascade_agents.graph_digest <repoId>
 cascade-agents/
 ├── pyproject.toml                   # deps: band-sdk[crewai], httpx, pyyaml, python-dotenv
 ├── .python-version                  # 3.12
-├── .env.example                     # platform URLs, OPENAI_API_KEY, graph source
+├── .env.example                     # model vars, OPENAI_API_KEY, Cascade app URL, repo ID
 ├── agent_config.example.yaml        # per-agent Band credentials (copy → agent_config.yaml, gitignored)
 ├── verify_setup.py                  # import smoke test
+├── run_one.py                       # single-turn test: run Facilitator against one prompt
+├── bootstrap.py                     # pre-builds comprehension + digest caches without starting agents
 └── src/cascade_agents/
     ├── __init__.py
     ├── agents.py                    # Facilitator, Ripple Analyst, Test Debugger definitions
+    ├── comprehension.py             # one-time LLM comprehension pass → cached KG briefing
     ├── graph_digest.py              # KG fetching + digest builders (full + role-scoped)
     ├── loop_guard.py                # pre-LLM ack filter + agent-turn cap
     ├── health.py                    # HTTP /healthz for Render keep-alive
