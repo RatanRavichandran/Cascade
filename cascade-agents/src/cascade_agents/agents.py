@@ -40,6 +40,11 @@ _PLATFORM_RULES = """
 ## Band platform rules (MUST follow)
 
 ### Communication
+0. **CRITICAL — `band_send_message` is your ONLY output channel.** "Final Answer:" text
+   is INVISIBLE to the room — it is swallowed by the framework and never delivered.
+   You MUST call the `band_send_message` tool to send any message. If you do not call
+   this tool, your response will never be seen by anyone. Once you have completed your
+   analysis, call `band_send_message` IMMEDIATELY — do not continue reasoning.
 1. **`band_send_message` is for substantive content only.** Use it exclusively when you have
    actual findings, a delegation with specific task details, or a final report.
    NEVER use `band_send_message` for acknowledgements like "please hold on", "proceeding",
@@ -88,7 +93,7 @@ def _make_agent(
         goal=goal,
         backstory=backstory + _PLATFORM_RULES,
         verbose=False,
-        max_iter=5,
+        max_iter=20,
     )
     return Agent.from_config(
         config_key,
