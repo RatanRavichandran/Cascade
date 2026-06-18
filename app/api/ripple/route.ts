@@ -22,7 +22,6 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import OpenAI from "openai";
 import { store } from "@/lib/kg/graph/store";
 
 export const runtime = "nodejs";
@@ -68,19 +67,6 @@ async function bandPost(
   return res.json();
 }
 
-async function bandPatch(path: string, apiKey: string, body: unknown): Promise<unknown> {
-  const res = await fetch(`${BAND_REST_BASE}/api/v1${path}`, {
-    method: "PATCH",
-    headers: {
-      "Content-Type": "application/json",
-      "X-API-Key": apiKey,
-    },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) throw new Error(`Band API PATCH ${path} → ${res.status}`);
-  return res.json().catch(() => ({}));
-}
-
 async function bandGet(path: string, apiKey: string): Promise<unknown> {
   const res = await fetch(`${BAND_REST_BASE}/api/v1${path}`, {
     headers: { "X-API-Key": apiKey },
@@ -90,27 +76,6 @@ async function bandGet(path: string, apiKey: string): Promise<unknown> {
     throw new Error(`Band API GET ${path} → ${res.status}: ${err.detail ?? res.statusText}`);
   }
   return res.json();
-}
-
-async function generateRoomTitle(changeRequest: string): Promise<string> {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) return "";
-  try {
-    const openai = new OpenAI({ apiKey });
-    const resp = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      max_tokens: 20,
-      messages: [
-        {
-          role: "user",
-          content: `Write a short room title (max 6 words, no quotes) summarizing this change request:\n\n${changeRequest}`,
-        },
-      ],
-    });
-    return resp.choices[0]?.message?.content?.trim().slice(0, 60) ?? "";
-  } catch {
-    return "";
-  }
 }
 
 export async function POST(req: NextRequest) {
@@ -163,18 +128,10 @@ export async function POST(req: NextRequest) {
     const meResp = await bandGet("/agent/me", orchestratorKey) as { data: { owner_uuid: string } };
     const ownerUuid = meResp.data.owner_uuid;
 
-    // 2. Create a fresh room, then rename it (PATCH is non-fatal — Band may not expose it).
+    // 2. Create a fresh room.
     // The Band Agent API wraps each body in its model key: {"chat": {...}}.
-    const [title, roomResp] = await Promise.all([
-      generateRoomTitle(changeRequest),
-      bandPost("/agent/chats", orchestratorKey, { chat: {} }) as Promise<{ data: { id: string } }>,
-    ]);
-    const roomId = (roomResp as { data: { id: string } }).data.id;
-    if (title) {
-      await bandPatch(`/agent/chats/${roomId}`, orchestratorKey, { chat: { name: title } }).catch(
-        (e: unknown) => console.warn("[/api/ripple] Room rename skipped:", e)
-      );
-    }
+    const roomResp = await bandPost("/agent/chats", orchestratorKey, { chat: {} }) as { data: { id: string } };
+    const roomId = roomResp.data.id;
 
     // 3. Add all participants — body must be {"participant": {"participant_id": "..."}}.
     for (const participantId of [facilitatorId, rippleAnalystId, testDebuggerId, ownerUuid]) {
