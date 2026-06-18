@@ -1,0 +1,21 @@
+name: Keep cascade-agents awake
+
+# Render Free tier spins down after 15 min of no inbound traffic.
+# The Band SDK WebSocket connects OUT to band.ai — it does not count as inbound.
+# This workflow pings the health endpoint every 10 min to prevent sleep.
+on:
+  schedule:
+    - cron: "*/10 * * * *"   # every 10 minutes, 24 h/day
+  workflow_dispatch:           # allow manual trigger from the Actions tab
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping /healthz
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            --max-time 30 \
+            https://cascade-agents.onrender.com/healthz)
+          echo "Response: $STATUS"
+          [ "$STATUS" = "200" ] || exit 1

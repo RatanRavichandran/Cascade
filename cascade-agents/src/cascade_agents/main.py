@@ -41,8 +41,12 @@ logging.basicConfig(
 logging.getLogger("httpx").setLevel(logging.WARNING)
 logger = logging.getLogger("cascade.main")
 
-# agent_config.yaml lives two levels above this file: cascade-agents/agent_config.yaml
-CONFIG_PATH = Path(__file__).resolve().parents[2] / "agent_config.yaml"
+# agent_config.yaml location:
+#   - Local / Docker volume: /app/agent_config.yaml
+#   - Render Secret File:    /etc/secrets/agent_config.yaml
+_RENDER_CONFIG = Path("/etc/secrets/agent_config.yaml")
+_LOCAL_CONFIG  = Path(__file__).resolve().parents[2] / "agent_config.yaml"
+CONFIG_PATH    = _RENDER_CONFIG if _RENDER_CONFIG.exists() else _LOCAL_CONFIG
 
 # Per-role models: Facilitator benefits from stronger reasoning to classify and synthesize well.
 _DEFAULT_MODEL = os.getenv("CASCADE_AGENT_MODEL", "gpt-5-mini")
