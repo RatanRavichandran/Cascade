@@ -22,6 +22,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import OpenAI from "openai";
 import { store } from "@/lib/kg/graph/store";
 
 export const runtime = "nodejs";
@@ -78,6 +79,27 @@ async function bandGet(path: string, apiKey: string): Promise<unknown> {
   return res.json();
 }
 
+async function generateRoomTitle(changeRequest: string): Promise<string> {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) return "";
+  try {
+    const openai = new OpenAI({ apiKey });
+    const resp = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      max_tokens: 20,
+      messages: [
+        {
+          role: "user",
+          content: `Write a short room title (max 6 words, no quotes) summarizing this change request:\n\n${changeRequest}`,
+        },
+      ],
+    });
+    return resp.choices[0]?.message?.content?.trim().slice(0, 60) ?? "";
+  } catch {
+    return "";
+  }
+}
+
 export async function POST(req: NextRequest) {
   // --- Parse + validate request body ---
   let repoId: string;
@@ -128,9 +150,12 @@ export async function POST(req: NextRequest) {
     const meResp = await bandGet("/agent/me", orchestratorKey) as { data: { owner_uuid: string } };
     const ownerUuid = meResp.data.owner_uuid;
 
-    // 2. Create a fresh room.
+    // 2. Generate a room title with a lightweight model, then create the room.
     // The Band Agent API wraps each body in its model key: {"chat": {...}}.
-    const roomResp = await bandPost("/agent/chats", orchestratorKey, { chat: {} }) as { data: { id: string } };
+    const title = await generateRoomTitle(changeRequest);
+    const roomResp = await bandPost("/agent/chats", orchestratorKey, {
+      chat: title ? { name: title } : {},
+    }) as { data: { id: string } };
     const roomId = roomResp.data.id;
 
     // 3. Add all participants — body must be {"participant": {"participant_id": "..."}}.
