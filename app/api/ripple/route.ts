@@ -68,6 +68,19 @@ async function bandPost(
   return res.json();
 }
 
+async function bandPatch(path: string, apiKey: string, body: unknown): Promise<unknown> {
+  const res = await fetch(`${BAND_REST_BASE}/api/v1${path}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      "X-API-Key": apiKey,
+    },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`Band API PATCH ${path} → ${res.status}`);
+  return res.json().catch(() => ({}));
+}
+
 async function bandGet(path: string, apiKey: string): Promise<unknown> {
   const res = await fetch(`${BAND_REST_BASE}/api/v1${path}`, {
     headers: { "X-API-Key": apiKey },
@@ -150,13 +163,18 @@ export async function POST(req: NextRequest) {
     const meResp = await bandGet("/agent/me", orchestratorKey) as { data: { owner_uuid: string } };
     const ownerUuid = meResp.data.owner_uuid;
 
-    // 2. Generate a room title with a lightweight model, then create the room.
+    // 2. Create a fresh room, then rename it (PATCH is non-fatal — Band may not expose it).
     // The Band Agent API wraps each body in its model key: {"chat": {...}}.
-    const title = await generateRoomTitle(changeRequest);
-    const roomResp = await bandPost("/agent/chats", orchestratorKey, {
-      chat: title ? { name: title } : {},
-    }) as { data: { id: string } };
-    const roomId = roomResp.data.id;
+    const [title, roomResp] = await Promise.all([
+      generateRoomTitle(changeRequest),
+      bandPost("/agent/chats", orchestratorKey, { chat: {} }) as Promise<{ data: { id: string } }>,
+    ]);
+    const roomId = (roomResp as { data: { id: string } }).data.id;
+    if (title) {
+      await bandPatch(`/agent/chats/${roomId}`, orchestratorKey, { chat: { name: title } }).catch(
+        (e: unknown) => console.warn("[/api/ripple] Room rename skipped:", e)
+      );
+    }
 
     // 3. Add all participants — body must be {"participant": {"participant_id": "..."}}.
     for (const participantId of [facilitatorId, rippleAnalystId, testDebuggerId, ownerUuid]) {
