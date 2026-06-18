@@ -155,7 +155,7 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    const roomUrl = `https://app.band.ai/rooms/${roomId}`;
+    const roomUrl = `https://app.band.ai/chat/${roomId}`;
     return NextResponse.json({ roomId, roomUrl });
   } catch (err) {
     console.error("[/api/ripple] Band API error:", err);
