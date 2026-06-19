@@ -14,8 +14,10 @@ jobs:
     steps:
       - name: Ping /healthz
         run: |
+          # Render free tier cold-starts take up to 60s — allow enough headroom.
+          # If the service is already warm, this returns in ~1s.
           STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
-            --max-time 30 \
+            --max-time 90 \
             https://cascade-agents.onrender.com/healthz)
           echo "Response: $STATUS"
           [ "$STATUS" = "200" ] || exit 1
