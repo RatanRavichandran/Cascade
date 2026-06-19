@@ -103,8 +103,11 @@ class RepoDigests:
             # Test Impact plans against test/import edges — same scope as Test Debugger.
             return self.debugger
         if role in ("change_intake", "requirement_spec", "stakeholder_approval", "change_plan"):
-            # Synthesis / intake roles need the full node list so they can cite KG paths.
-            return self.general
+            # Intake/synthesis roles get the dependency+route scoped digest — same as
+            # Engineering Impact. The full general digest is too noisy for these roles;
+            # the ripple digest provides sufficient structural context (affected modules,
+            # routes, API boundaries) for identifying likely repo areas and citing node IDs.
+            return self.ripple
         raise ValueError(f"Unknown role: {role!r}")
 
     def preamble_for_role(self, role: str) -> str:

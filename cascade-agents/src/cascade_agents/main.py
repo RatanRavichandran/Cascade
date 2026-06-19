@@ -149,18 +149,32 @@ async def main() -> None:
         PORT,
     )
 
+    agents_to_run = [
+        ("facilitator",          facilitator),
+        ("ripple_analyst",       ripple_analyst),
+        ("test_debugger",        test_debugger),
+        ("change_intake",        change_intake),
+        ("requirement_spec",     requirement_spec),
+        ("engineering_impact",   engineering_impact),
+        ("test_impact",          test_impact),
+        ("stakeholder_approval", stakeholder_approval),
+        ("change_plan",          change_plan),
+    ]
+
+    async def _run_agent(name: str, agent) -> None:
+        """Run one agent, logging but not propagating exceptions so the gather stays alive."""
+        while True:
+            try:
+                await agent.run()
+                logger.warning("Agent '%s' run() returned — reconnecting in 5 s", name)
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:  # noqa: BLE001
+                logger.error("Agent '%s' crashed: %r — reconnecting in 5 s", name, exc)
+            await asyncio.sleep(5)
+
     async with health_server:
-        await asyncio.gather(
-            facilitator.run(),
-            ripple_analyst.run(),
-            test_debugger.run(),
-            change_intake.run(),
-            requirement_spec.run(),
-            engineering_impact.run(),
-            test_impact.run(),
-            stakeholder_approval.run(),
-            change_plan.run(),
-        )
+        await asyncio.gather(*[_run_agent(n, a) for n, a in agents_to_run])
 
 
 if __name__ == "__main__":
