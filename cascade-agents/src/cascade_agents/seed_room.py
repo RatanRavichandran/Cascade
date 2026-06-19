@@ -18,8 +18,9 @@ Usage:
 
 Prerequisites:
     • uv run python -m cascade_agents.main  running in another terminal (agents must be live)
-    • agent_config.yaml populated with all 4 entries (facilitator, ripple_analyst,
-      test_debugger, orchestrator) — copy from agent_config.example.yaml
+    • agent_config.yaml populated with all 10 entries (facilitator, ripple_analyst,
+      test_debugger, orchestrator, change_intake, requirement_spec, engineering_impact,
+      test_impact, stakeholder_approval, change_plan) — copy from agent_config.example.yaml
     • CASCADE_API_BASE set in .env (the repo's graph must have been analyzed first)
 
 How it works:
@@ -97,10 +98,16 @@ async def seed_room(repo_id: str, change_request: str) -> None:
     load_dotenv()
     cfg = _load_config()
 
-    orchestrator_key = _require_key(cfg, "orchestrator", "api_key")
-    facilitator_id   = _require_key(cfg, "facilitator",  "agent_id")
-    ripple_id        = _require_key(cfg, "ripple_analyst","agent_id")
-    debugger_id      = _require_key(cfg, "test_debugger", "agent_id")
+    orchestrator_key      = _require_key(cfg, "orchestrator",          "api_key")
+    facilitator_id        = _require_key(cfg, "facilitator",           "agent_id")
+    ripple_id             = _require_key(cfg, "ripple_analyst",        "agent_id")
+    debugger_id           = _require_key(cfg, "test_debugger",         "agent_id")
+    change_intake_id      = _require_key(cfg, "change_intake",         "agent_id")
+    requirement_spec_id   = _require_key(cfg, "requirement_spec",      "agent_id")
+    engineering_impact_id = _require_key(cfg, "engineering_impact",    "agent_id")
+    test_impact_id        = _require_key(cfg, "test_impact",           "agent_id")
+    stakeholder_id        = _require_key(cfg, "stakeholder_approval",  "agent_id")
+    change_plan_id        = _require_key(cfg, "change_plan",           "agent_id")
 
     client = AsyncRestClient(base_url=BAND_REST_BASE, api_key=orchestrator_key)
 
@@ -115,8 +122,21 @@ async def seed_room(repo_id: str, change_request: str) -> None:
     )
     room_id: str = room_resp.data.id
 
-    # 3. Add the 3 reasoning agents + the owner user so they can watch in the Band UI.
-    for participant_id in (facilitator_id, ripple_id, debugger_id, owner_uuid):
+    # 3. Add all 8 reasoning agents + the owner user so they can watch in the Band UI.
+    #    The Facilitator can only @mention agents that are already in the room, so all
+    #    committee agents must be added here. Orchestrator is already the room creator.
+    for participant_id in (
+        facilitator_id,
+        ripple_id,
+        debugger_id,
+        change_intake_id,
+        requirement_spec_id,
+        engineering_impact_id,
+        test_impact_id,
+        stakeholder_id,
+        change_plan_id,
+        owner_uuid,
+    ):
         await client.agent_api_participants.add_agent_chat_participant(
             room_id,
             participant=ParticipantRequest(participant_id=participant_id),

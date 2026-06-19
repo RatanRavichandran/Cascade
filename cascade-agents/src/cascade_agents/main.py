@@ -61,7 +61,17 @@ PORT = int(os.getenv("PORT", "10000"))
 
 
 async def main() -> None:
-    from cascade_agents.agents import make_facilitator, make_ripple_analyst, make_test_debugger
+    from cascade_agents.agents import (
+        make_facilitator,
+        make_ripple_analyst,
+        make_test_debugger,
+        make_change_intake_agent,
+        make_requirement_spec_agent,
+        make_engineering_impact_agent,
+        make_test_impact_agent,
+        make_stakeholder_approval_agent,
+        make_change_plan_agent,
+    )
     from cascade_agents.health import start_health_server
     from cascade_agents.repo_context import RepoContextResolver
 
@@ -96,22 +106,46 @@ async def main() -> None:
     test_debugger = make_test_debugger(
         resolver=resolver, model=SPECIALIST_MODEL, config_path=CONFIG_PATH
     )
+    change_intake = make_change_intake_agent(
+        resolver=resolver, model=SPECIALIST_MODEL, config_path=CONFIG_PATH
+    )
+    requirement_spec = make_requirement_spec_agent(
+        resolver=resolver, model=SPECIALIST_MODEL, config_path=CONFIG_PATH
+    )
+    engineering_impact = make_engineering_impact_agent(
+        resolver=resolver, model=SPECIALIST_MODEL, config_path=CONFIG_PATH
+    )
+    test_impact = make_test_impact_agent(
+        resolver=resolver, model=SPECIALIST_MODEL, config_path=CONFIG_PATH
+    )
+    stakeholder_approval = make_stakeholder_approval_agent(
+        resolver=resolver, model=SPECIALIST_MODEL, config_path=CONFIG_PATH
+    )
+    change_plan = make_change_plan_agent(
+        resolver=resolver, model=SPECIALIST_MODEL, config_path=CONFIG_PATH
+    )
 
     health_server = await start_health_server(PORT)
 
     logger.info(
         "\n"
-        "  +----------------------------------------------------------+\n"
-        "  |  Cascade Phase 3 agents live on band.ai (repo-agnostic)  |\n"
-        "  |                                                           |\n"
-        "  |  @Facilitator    - entry point, routes and synthesises   |\n"
-        "  |  @Ripple Analyst - Entry A: requirements change impact   |\n"
-        "  |  @Test Debugger  - Entry B: failing test root-cause      |\n"
-        "  |                                                           |\n"
-        "  |  Context resolved per-room from [repoId:...] seed tag    |\n"
-        "  |  Health: GET http://localhost:%s/healthz              |\n"
-        "  |  Press Ctrl+C to stop.                                   |\n"
-        "  +----------------------------------------------------------+",
+        "  +--------------------------------------------------------------+\n"
+        "  |  Cascade Phase 3 — RippleRoom (9 agents, repo-agnostic)     |\n"
+        "  |                                                              |\n"
+        "  |  @Facilitator          - entry point, routes & synthesises  |\n"
+        "  |  @Change Intake        - normalises the change request       |\n"
+        "  |  @Requirement & Spec   - requirement/spec impact             |\n"
+        "  |  @Engineering Impact   - code/API/data/config impact         |\n"
+        "  |  @Test Impact          - test planning & regression scope    |\n"
+        "  |  @Stakeholder Approval - stakeholders, approvals, release    |\n"
+        "  |  @Change Plan          - synthesises final change plan       |\n"
+        "  |  @Ripple Analyst       - Entry A: direct ripple analysis     |\n"
+        "  |  @Test Debugger        - Entry B: failing test root-cause    |\n"
+        "  |                                                              |\n"
+        "  |  Context resolved per-room from [repoId:...] seed tag       |\n"
+        "  |  Health: GET http://localhost:%s/healthz                |\n"
+        "  |  Press Ctrl+C to stop.                                      |\n"
+        "  +--------------------------------------------------------------+",
         PORT,
     )
 
@@ -120,6 +154,12 @@ async def main() -> None:
             facilitator.run(),
             ripple_analyst.run(),
             test_debugger.run(),
+            change_intake.run(),
+            requirement_spec.run(),
+            engineering_impact.run(),
+            test_impact.run(),
+            stakeholder_approval.run(),
+            change_plan.run(),
         )
 
 

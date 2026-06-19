@@ -77,6 +77,11 @@ Follow the link to watch the agents collaborate in Band.
 The agents run as a separate Python service (`cascade-agents/`) deployed to Render. See
 [`cascade-agents/README.md`](cascade-agents/README.md) for setup and deployment instructions.
 
+**Agent capabilities and scope:**
+- **Facilitator** — classifies your request (requirements change vs. failing test), routes to the right specialist, and synthesises the final answer back to you. Does not analyze code itself.
+- **Ripple Analyst** — traces a requirements/spec change through the knowledge graph: seed artifacts → dependency edges → transitive impact → affected tests. Works entirely from KG node metadata and edges.
+- **Test Debugger** — diagnoses a failing test using the KG as an index: locates test nodes, traces `tests`/`imports` edges to covered modules, classifies the probable root-cause category, and proposes a fix direction. **Does not have access to raw source code** — the diagnosis is KG-inferred and will name files and likely causes, but line-level evidence requires the developer to read the source directly.
+
 ## Authentication
 
 Sign in with GitHub to unlock:
@@ -97,3 +102,9 @@ Do not `await res.json()` on it — use `response.body.getReader()`.
 **Store is env-selected at startup.** If `KV_REST_API_URL` is set, graphs go to Upstash Redis.
 Otherwise they go to `graphs/*.graph.json` (local only). The `GraphStore` interface makes
 switching a one-file change with no caller impact.
+
+**Render free-tier keep-alive requires a 90-second curl timeout.** The GitHub Actions cron
+(`.github/workflows/keep-alive.yml`) pings `/healthz` every 10 minutes. Render cold starts
+take up to 60 seconds — if the ping's curl timeout is shorter than the cold start, the request
+times out, the workflow fails, and the service stays asleep (a death spiral). The timeout is
+set to 90s to give Render enough headroom.

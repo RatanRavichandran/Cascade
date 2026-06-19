@@ -36,7 +36,7 @@ from band.core.types import AgentInput
 from band.platform.event import PlatformEvent
 from band.runtime.execution import ExecutionContext
 
-from cascade_agents.loop_guard import LoopGuardPreprocessor
+from cascade_agents.loop_guard import LoopGuardPreprocessor, _FACILITATOR_MAX_AGENT_TURNS, _MAX_AGENT_TURNS_PER_CYCLE
 
 logger = logging.getLogger(__name__)
 
@@ -81,11 +81,12 @@ _REPO_ID_RE = re.compile(r"\[repoId:([^\]]+)\]")
 
 @dataclass(frozen=True)
 class RepoDigests:
-    """Immutable container for the three role-scoped digests of a single repoId."""
+    """Immutable container for the role-scoped digests of a single repoId."""
 
     facilitator: str  # comprehension briefing (distilled via LLM; disk-cached)
     ripple: str       # scoped digest: dependency + route edges
     debugger: str     # scoped digest: test + import edges
+    general: str      # full digest: all edges + node IDs (for intake/synthesis roles)
 
     def for_role(self, role: str) -> str:
         """Return the digest appropriate for the given agent role key."""
@@ -93,8 +94,17 @@ class RepoDigests:
             return self.facilitator
         if role == "ripple_analyst":
             return self.ripple
+        if role == "engineering_impact":
+            # Engineering traces dependency + route edges — same scope as Ripple Analyst.
+            return self.ripple
         if role == "test_debugger":
             return self.debugger
+        if role == "test_impact":
+            # Test Impact plans against test/import edges — same scope as Test Debugger.
+            return self.debugger
+        if role in ("change_intake", "requirement_spec", "stakeholder_approval", "change_plan"):
+            # Synthesis / intake roles need the full node list so they can cite KG paths.
+            return self.general
         raise ValueError(f"Unknown role: {role!r}")
 
     def preamble_for_role(self, role: str) -> str:
@@ -160,19 +170,24 @@ class RepoContextResolver:
         # Specialists: deterministic edge-scoped digests (no LLM).
         ripple_digest = build_scoped_digest(graph, edge_types=_RIPPLE_EDGE_TYPES)
         debugger_digest = build_scoped_digest(graph, edge_types=_DEBUGGER_EDGE_TYPES)
+        # Intake/synthesis roles: full digest with all edges so they can cite any KG path.
+        from cascade_agents.graph_digest import build_digest
+        general_digest = build_digest(graph)
 
         digests = RepoDigests(
             facilitator=facilitator_digest,
             ripple=ripple_digest,
             debugger=debugger_digest,
+            general=general_digest,
         )
         self._cache[repo_id] = digests
         logger.info(
-            "RepoContextResolver cached '%s': fac=%d chars | ripple=%d chars | debug=%d chars",
+            "RepoContextResolver cached '%s': fac=%d chars | ripple=%d chars | debug=%d chars | general=%d chars",
             repo_id,
             len(facilitator_digest),
             len(ripple_digest),
             len(debugger_digest),
+            len(general_digest),
         )
         return digests
 
@@ -192,7 +207,9 @@ class RepoInjectionPreprocessor(LoopGuardPreprocessor):
     """
 
     def __init__(self, resolver: RepoContextResolver, role: str) -> None:
-        super().__init__()
+        # Facilitator receives all specialist reports in a cycle; give it a higher cap.
+        cap = _FACILITATOR_MAX_AGENT_TURNS if role == "facilitator" else _MAX_AGENT_TURNS_PER_CYCLE
+        super().__init__(max_agent_turns=cap)
         self._resolver = resolver
         self._role = role
 

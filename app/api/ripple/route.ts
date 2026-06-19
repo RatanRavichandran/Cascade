@@ -14,11 +14,17 @@
  * the Human API is Enterprise-only — see docs/t1-findings.md).
  *
  * Environment (server-only — never shipped to the browser):
- *   BAND_ORCHESTRATOR_KEY     Orchestrator agent api_key
- *   BAND_FACILITATOR_ID       Facilitator agent UUID
- *   BAND_RIPPLE_ANALYST_ID    Ripple Analyst agent UUID
- *   BAND_TEST_DEBUGGER_ID     Test Debugger agent UUID
- *   BAND_REST_BASE            Band REST host (default: https://app.band.ai)
+ *   BAND_ORCHESTRATOR_KEY          Orchestrator agent api_key
+ *   BAND_FACILITATOR_ID            Facilitator agent UUID
+ *   BAND_RIPPLE_ANALYST_ID         Ripple Analyst agent UUID
+ *   BAND_TEST_DEBUGGER_ID          Test Debugger agent UUID
+ *   BAND_CHANGE_INTAKE_ID          Change Intake agent UUID
+ *   BAND_REQUIREMENT_SPEC_ID       Requirement & Spec agent UUID
+ *   BAND_ENGINEERING_IMPACT_ID     Engineering Impact agent UUID
+ *   BAND_TEST_IMPACT_ID            Test Impact agent UUID
+ *   BAND_STAKEHOLDER_APPROVAL_ID   Stakeholder & Approval agent UUID
+ *   BAND_CHANGE_PLAN_ID            Change Plan agent UUID
+ *   BAND_REST_BASE                 Band REST host (default: https://app.band.ai)
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -110,11 +116,23 @@ export async function POST(req: NextRequest) {
   let facilitatorId: string;
   let rippleAnalystId: string;
   let testDebuggerId: string;
+  let changeIntakeId: string;
+  let requirementSpecId: string;
+  let engineeringImpactId: string;
+  let testImpactId: string;
+  let stakeholderApprovalId: string;
+  let changePlanId: string;
   try {
-    orchestratorKey  = requireEnv("BAND_ORCHESTRATOR_KEY");
-    facilitatorId    = requireEnv("BAND_FACILITATOR_ID");
-    rippleAnalystId  = requireEnv("BAND_RIPPLE_ANALYST_ID");
-    testDebuggerId   = requireEnv("BAND_TEST_DEBUGGER_ID");
+    orchestratorKey      = requireEnv("BAND_ORCHESTRATOR_KEY");
+    facilitatorId        = requireEnv("BAND_FACILITATOR_ID");
+    rippleAnalystId      = requireEnv("BAND_RIPPLE_ANALYST_ID");
+    testDebuggerId       = requireEnv("BAND_TEST_DEBUGGER_ID");
+    changeIntakeId       = requireEnv("BAND_CHANGE_INTAKE_ID");
+    requirementSpecId    = requireEnv("BAND_REQUIREMENT_SPEC_ID");
+    engineeringImpactId  = requireEnv("BAND_ENGINEERING_IMPACT_ID");
+    testImpactId         = requireEnv("BAND_TEST_IMPACT_ID");
+    stakeholderApprovalId = requireEnv("BAND_STAKEHOLDER_APPROVAL_ID");
+    changePlanId         = requireEnv("BAND_CHANGE_PLAN_ID");
   } catch (err) {
     console.error("[/api/ripple] missing Band env var:", err);
     return NextResponse.json(
@@ -134,7 +152,20 @@ export async function POST(req: NextRequest) {
     const roomId = roomResp.data.id;
 
     // 3. Add all participants — body must be {"participant": {"participant_id": "..."}}.
-    for (const participantId of [facilitatorId, rippleAnalystId, testDebuggerId, ownerUuid]) {
+    //    All 8 reasoning agents must be in the room so the Facilitator can @mention them.
+    //    Orchestrator is already the room creator/owner — do NOT add it as a participant.
+    for (const participantId of [
+      facilitatorId,
+      rippleAnalystId,
+      testDebuggerId,
+      changeIntakeId,
+      requirementSpecId,
+      engineeringImpactId,
+      testImpactId,
+      stakeholderApprovalId,
+      changePlanId,
+      ownerUuid,
+    ]) {
       await bandPost(`/agent/chats/${roomId}/participants`, orchestratorKey, {
         participant: { participant_id: participantId },
       });
